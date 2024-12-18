@@ -105,13 +105,13 @@ export default pool;
 
 ### `src/models/userModel.ts`
 #### Purpose
-- Contains database queries for the `users` table.
+- Contains database queries for the `users` and `profiles` tables.
 - Acts as the data access layer.
 
 #### What Happens When Run
 1. Executes SQL queries using the database connection pool.
 2. For `getUsers`, retrieves all records from the `users` table.
-3. For `createUser`, inserts a new record into the `users` table and returns metadata, including the `insertId`.
+3. For `createUserWithProfile`, inserts a new user and profile in a single transaction.
 
 #### Code Snippet
 ```typescript
@@ -123,12 +123,36 @@ export const getUsers = async () => {
   return rows;
 };
 
-export const createUser = async (name: string, email: string) => {
-  const [result] = await pool.query<ResultSetHeader>(
-    'INSERT INTO users (name, email) VALUES (?, ?)',
-    [name, email]
-  );
-  return result;
+export const createUserWithProfile = async (
+  email: string,
+  passwordHash: string,
+  firstName: string,
+  lastName: string
+) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [userResult] = await connection.query<ResultSetHeader>(
+      'INSERT INTO users (email, password_hash) VALUES (?, ?)',
+      [email, passwordHash]
+    );
+
+    const userId = userResult.insertId;
+
+    await connection.query(
+      'INSERT INTO profiles (user_id, first_name, last_name) VALUES (?, ?, ?)',
+      [userId, firstName, lastName]
+    );
+
+    await connection.commit();
+    return { userId, email, firstName, lastName };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 ```
 
@@ -141,12 +165,12 @@ export const createUser = async (name: string, email: string) => {
 
 #### What Happens When Run
 1. For `getAllUsers`, fetches all users by calling `getUsers` from `userModel` and responds with the data.
-2. For `addUser`, validates the request body, calls `createUser` from `userModel`, and responds with the newly created user’s details.
+2. For `addUser`, validates the request body, calls `createUserWithProfile` from `userModel`, and responds with the newly created user’s details.
 
 #### Code Snippet
 ```typescript
 import { Request, Response } from 'express';
-import { getUsers, createUser } from '../models/userModel';
+import { getUsers, createUserWithProfile } from '../models/userModel';
 
 export const getAllUsers = async (_req: Request, res: Response) => {
   try {
@@ -159,9 +183,9 @@ export const getAllUsers = async (_req: Request, res: Response) => {
 
 export const addUser = async (req: Request, res: Response) => {
   try {
-    const { name, email } = req.body;
-    const result = await createUser(name, email);
-    res.status(201).json({ id: result.insertId, name, email });
+    const { email, passwordHash, firstName, lastName } = req.body;
+    const newUser = await createUserWithProfile(email, passwordHash, firstName, lastName);
+    res.status(201).json(newUser);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

@@ -1,26 +1,23 @@
 import { Request, Response } from 'express';
-import { getUsers, createUser } from '../models/userModel';
+
+import { getUsers, createUserWithProfile } from '../models/userModel';
+import { catchErrorHelper } from './controllerHelpers';
 
 export const getAllUsers = async (_req: Request, res: Response) => {
   try {
     const users = await getUsers();
     res.status(200).json(users);
   } catch (err) {
-    if (err instanceof Error) {
-        res.status(500).json({ error: err.message});
-    }
-    else {
-        res.status(500).json({ error: 'Internal Server Error'});
-    }
+    catchErrorHelper(err, res)
   }
 };
 
 export const addUser = async (req: Request, res: Response) => {
   try {
-    const { name, email } = req.body;
-    const result = await createUser(name, email);
-    res.status(201).json({ id: result.insertId, name, email });
+    const { email, passwordHash, firstName, lastName, bio } = req.body;
+    const newUser = await createUserWithProfile(email, passwordHash, firstName, lastName, bio);
+    res.status(201).json(newUser);
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    catchErrorHelper(err, res)
   }
 };
