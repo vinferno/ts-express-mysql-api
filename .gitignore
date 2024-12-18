@@ -1,0 +1,57 @@
+# System generated files
+
+*.swp
+
+*.tmp
+
+*.log
+
+*.bak
+
+*~
+
+
+
+# IDE/Editor specific files
+
+.project
+
+.settings
+
+.idea/
+
+*.suo
+
+*.cache
+
+
+
+# Compiled files
+
+*.class
+
+*.pyc
+
+*.o
+
+*.exe
+
+*.dll
+
+
+
+# Package/Dependency files
+
+node_modules/
+
+vendor/
+
+bower_components/
+
+
+
+# Local configuration files
+
+.env
+
+local_settings.py
